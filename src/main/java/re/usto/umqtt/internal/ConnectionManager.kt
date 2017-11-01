@@ -34,7 +34,7 @@ class ConnectionManager(private val connection: UMqtt.Companion.Connection) {
                 })
         readDisposable = dataQueue.subscribeOn(Schedulers.io())
                 .subscribe({
-                    frame -> Log.d("UMqtt", frame.toString())
+                    frame -> Log.d("UMqtt", Marshaller.unmarshal(frame).toString())
                 }, {
                     error -> /* TODO: Logger!! */
                 })

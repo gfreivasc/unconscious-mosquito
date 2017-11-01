@@ -7,25 +7,8 @@ import java.net.NoRouteToHostException
 
 class UMqtt(private val connection: Connection) {
     private val connManager = ConnectionManager(connection)
-
-    init {
-        connManager.connect()
-                .subscribeOn(Schedulers.io())
-                .subscribe({
-                    connection.listener?.onConnected()
-                }, { error -> when(error) {
-                    is NoRouteToHostException -> Log.e(
-                            "UMqtt",
-                            "Check if information is correct: ${connection.brokerIp}:${connection.brokerPort}",
-                            error)
-                    is SecurityException -> Log.e(
-                            "UMqtt",
-                            "Check your permissions, INTERNET must be missing",
-                            error
-                    )
-                    else -> error.printStackTrace()
-                }})
-    }
+    private var listener: OnConnectedListener? = null
+    private var onConnected: (() -> Unit)? = null
 
     interface OnConnectedListener {
         fun onConnected()
@@ -48,14 +31,45 @@ class UMqtt(private val connection: Connection) {
             var willRetain: Boolean = false
             var willQoS: Int = 0b00
             var cleanSession: Boolean = false
-            var listener: OnConnectedListener? = null
 
-            fun setProtocol(protocol: String, version: Int) {
+            fun setProtocol(protocol: String, version: Int): Connection {
                 this.protocol = protocol
                 this.version = version
+                return this
             }
 
-            fun connect(listener: OnConnectedListener) = UMqtt(this)
+            fun setCredentials(username: String, password: String): Connection {
+                this.username = username
+                this.password = password
+                return this
+            }
+
+            fun create() = UMqtt(this)
         }
+    }
+
+    fun connect(listener: OnConnectedListener) {
+        this.listener = listener
+        connect(listener::onConnected)
+    }
+
+    fun connect(listener: (() -> Unit)? = null) {
+        onConnected = listener
+        connManager.connect()
+                .subscribeOn(Schedulers.io())
+                .subscribe({
+                    onConnected?.invoke()
+                }, { error -> when(error) {
+                    is NoRouteToHostException -> Log.e(
+                            "UMqtt",
+                            "Check if information is correct: ${connection.brokerIp}:${connection.brokerPort}",
+                            error)
+                    is SecurityException -> Log.e(
+                            "UMqtt",
+                            "Check your permissions, INTERNET must be missing",
+                            error
+                    )
+                    else -> error.printStackTrace()
+                }})
     }
 }

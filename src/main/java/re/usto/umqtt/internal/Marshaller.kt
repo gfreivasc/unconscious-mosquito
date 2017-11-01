@@ -29,8 +29,7 @@ class Marshaller {
                 )
             }
             val arr = ArrayList<Byte>()
-            arr.add(0x01.toByte())
-            arr.add(0x00.toByte())
+            arr.add((0x01 shl 4).toByte())
             var remainingLength = message.protocol.length + 2 +
                     message.clientId.length + 2 + 4
             if (message.username != null) remainingLength += message.username.length + 2
@@ -41,14 +40,14 @@ class Marshaller {
             arr.addAll(encodeString(message.protocol))
             arr.add(message.version.toByte())
             var connectFlags = 0.toByte()
-            if (message.username != null) connectFlags = connectFlags or (1 shl 1)
-            if (message.password != null) connectFlags = connectFlags or (1 shl 2)
-            if (message.willRetain) connectFlags = connectFlags or (1 shl 3)
-            connectFlags = connectFlags or (message.willQoS shl 4).toByte()
+            if (message.username != null) connectFlags = connectFlags or (1 shl 7).toByte()
+            if (message.password != null) connectFlags = connectFlags or (1 shl 6)
+            if (message.willRetain) connectFlags = connectFlags or (1 shl 5)
+            connectFlags = connectFlags or (message.willQoS shl 3).toByte()
             if (message.willMessage != null) {
-                connectFlags = connectFlags or (1 shl 6)
+                connectFlags = connectFlags or (1 shl 2)
             }
-            if (message.cleanSession) connectFlags = connectFlags or (1 shl 7).toByte()
+            if (message.cleanSession) connectFlags = connectFlags or (1 shl 1)
             arr.add(connectFlags)
             arr.addAll(shortToBytes(message.keepAlive))
             arr.addAll(encodeString(message.clientId))

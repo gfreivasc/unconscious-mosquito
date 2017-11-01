@@ -2,8 +2,6 @@ package re.usto.umqtt.internal
 
 import android.util.Log
 import io.reactivex.Completable
-import io.reactivex.Observable
-import io.reactivex.ObservableEmitter
 import io.reactivex.disposables.Disposable
 import io.reactivex.schedulers.Schedulers
 import io.reactivex.subjects.PublishSubject
@@ -19,14 +17,12 @@ class ConnectionManager(private val connection: UMqtt.Companion.Connection) {
     private val socket = Socket()
     private val sendQueue = PublishSubject.create<ByteArray>()
     private val dataQueue = PublishSubject.create<ByteArray>()
-    private val readBuffer = ByteArray(1024 * 1024)
     private var parseBuffer = ArrayList<Byte>()
     private var parsePos = 0
     private var parseFetchSize = false
 
     private var readDisposable: Disposable
     private lateinit var parseDisposable: Disposable
-    private lateinit var inputReadObservable: ObservableEmitter<Byte>
 
 
     init {
@@ -56,20 +52,7 @@ class ConnectionManager(private val connection: UMqtt.Companion.Connection) {
     }
 
     private fun subscribeInputStream() {
-        inputReadObservable = ObservableEmitter { subscriber ->
-            try {
-                if (readDisposable.isDisposed) return@create
-                var m: Int
-                do {
-                    m = socket.getInputStream().read(readBuffer)
-                    if (m > 0) for (i in 0..(m - 1)) subscriber.onNext(readBuffer[i])
-                } while (m != -1 && !subscriber.isDisposed)
-            } catch (e: IOException) {
-                subscriber.onError(e)
-            }
-            if (!subscriber.isDisposed) subscriber.onComplete()
-        }
-        parseDisposable = inputReadObservable
+        parseDisposable = SocketObservable(socket).get()
                 .subscribeOn(Schedulers.io())
                 .subscribe({
                     parseBuffer.add(it)
@@ -109,13 +92,13 @@ class ConnectionManager(private val connection: UMqtt.Companion.Connection) {
                     connection.willQoS
             )
             subscribeInputStream()
-            sendMessage(connectFrame)
             async {
                 val response = dataQueue.awaitFirst()
                 val connack = Marshaller.unmarshal(response) as Connack
                 if (connack.returnCode == 0) s.onComplete()
                 else s.onError(ConnectException("Could not connect to MQTT Broker"))
             }
+            sendMessage(connectFrame)
         }
         catch (e: Throwable) {
             s.onError(e)

@@ -4,6 +4,8 @@ import re.usto.umqtt.internal.Connect
 import re.usto.umqtt.internal.Marshaller
 import org.junit.Test
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import re.usto.umqtt.internal.Connack
 
 class MarshallerTest {
     @Test fun connackPacketsCorrectlyMarshaled() {
@@ -56,5 +58,11 @@ class MarshallerTest {
         assertEquals(pw.length, marshaled[i] * 256 + marshaled[i + 1])
         i += 2
         for (j in 0 until pw.length) assertEquals(pw[j].toByte(), marshaled[j + i])
+    }
+
+    @Test fun connackFrameUnmarshalingCorrectly() {
+        val frame = byteArrayOf(0x20, 0x02, 0x00, 0x03)
+        val connack = Marshaller.unmarshal(frame) as Connack
+        assertEquals(0x03, connack.returnCode)
     }
 }

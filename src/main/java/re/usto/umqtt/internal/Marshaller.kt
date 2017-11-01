@@ -1,7 +1,5 @@
 package re.usto.umqtt.internal
 
-import java.nio.file.Files.size
-import kotlin.experimental.and
 import kotlin.experimental.or
 
 
@@ -12,7 +10,7 @@ class Marshaller {
                 throw IllegalArgumentException("Byte array not a proper MQTT frame")
             }
             return when (message[0]) {
-                0x02.toByte() -> Connack(message[3].toInt())
+                0x20.toByte() -> Connack(message[3].toInt())
                 else -> throw IllegalArgumentException("Byte array not a known MQTT frame")
             }
         }

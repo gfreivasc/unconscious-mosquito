@@ -17,6 +17,7 @@ class Marshaller {
 
         fun marshall(message: MQTTFrame): ByteArray = when (message) {
             is Connect -> marshallConnectFrame(message)
+            is Subscribe -> marshallSubscribeFrame(message)
             else -> TODO("LOG DIS")
         }
 
@@ -55,6 +56,24 @@ class Marshaller {
             }
             message.username?.let { arr.addAll(encodeString(it)) }
             message.password?.let { arr.addAll(encodeString(it)) }
+            return arr.toByteArray()
+        }
+
+        private fun marshallSubscribeFrame(message: Subscribe): ByteArray {
+            val arr = ArrayList<Byte>()
+            arr.add(((8 shl 4) or (1 shl 1)).toByte())
+            var remLen = 2
+            for (i in 0..(message.topics.size - 1)) {
+                remLen += message.topics[i].length + 2
+                remLen += 1
+            }
+            arr.addAll(encodedRemainingSize(remLen))
+            arr.add((message.packetId ushr 8).toByte())
+            arr.add((message.packetId and 0xff).toByte())
+            for (i in 0..(message.topics.size - 1)) {
+                arr.addAll(encodeString(message.topics[i]))
+                arr.add(message.qosLevels[i])
+            }
             return arr.toByteArray()
         }
 

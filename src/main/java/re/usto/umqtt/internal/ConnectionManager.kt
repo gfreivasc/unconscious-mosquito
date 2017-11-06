@@ -2,10 +2,12 @@ package re.usto.umqtt.internal
 
 import android.util.Log
 import io.reactivex.Completable
+import io.reactivex.Observable
 import io.reactivex.disposables.Disposable
 import io.reactivex.schedulers.Schedulers
 import io.reactivex.subjects.PublishSubject
 import kotlinx.coroutines.experimental.async
+import re.usto.umqtt.Subscription
 import re.usto.umqtt.UMqtt
 import re.usto.umqtt.util.awaitFirst
 import java.io.IOException
@@ -21,7 +23,6 @@ class ConnectionManager(private val connection: UMqtt.Companion.Connection) {
     private var parsePos = 0
     private var parseFetchSize = false
 
-    private var readDisposable: Disposable
     private lateinit var parseDisposable: Disposable
 
 
@@ -29,12 +30,6 @@ class ConnectionManager(private val connection: UMqtt.Companion.Connection) {
         sendQueue.subscribeOn(Schedulers.io())
                 .subscribe({
                     frame -> socket.getOutputStream().write(frame)
-                }, {
-                    error -> /* TODO: Logger!! */
-                })
-        readDisposable = dataQueue.subscribeOn(Schedulers.io())
-                .subscribe({
-                    frame -> Log.d("UMqtt", Marshaller.unmarshal(frame).toString())
                 }, {
                     error -> /* TODO: Logger!! */
                 })
@@ -105,7 +100,13 @@ class ConnectionManager(private val connection: UMqtt.Companion.Connection) {
         }
     }
 
-    private fun sendMessage(message: MQTTFrame) {
+    fun sendMessage(message: MQTTFrame) {
         sendQueue.onNext(Marshaller.marshall(message))
     }
+
+    fun observeMessageStream(): Observable<Publish> = dataQueue.subscribeOn(Schedulers.io())
+            .map { Marshaller.unmarshal(it) as Publish }
+
+    fun observeData(): Observable<MQTTFrame> = dataQueue.subscribeOn(Schedulers.io())
+            .map { Marshaller.unmarshal(it) }
 }

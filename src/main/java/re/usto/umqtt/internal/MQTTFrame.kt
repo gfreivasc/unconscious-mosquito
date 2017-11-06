@@ -26,3 +26,14 @@ data class Subscribe(val topics: Array<String>, val qosLevels: ByteArray, val pa
     }
     override val length: Int = 0
 }
+
+data class Publish(val topic: String, val payload: ByteArray, val qos: Byte = 0,
+                   val packetId: Int
+): MQTTFrame() {
+    override val length: Int = 0
+}
+
+data class Suback(val packetId: Int, val qosLevels: ByteArray): MQTTFrame() {
+    constructor(packetId: Int, qos: Byte): this(packetId, byteArrayOf(qos))
+    override val length: Int = 0
+}

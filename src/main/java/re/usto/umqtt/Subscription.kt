@@ -1,43 +1,53 @@
 package re.usto.umqtt
 
+import io.reactivex.disposables.Disposable
 import re.usto.umqtt.internal.*
 
 class Subscription(val subscribe: Subscribe,
                    val connectionManager: ConnectionManager) {
+    private var subscription: Disposable? = null
+    private var subackDisposable: Disposable? = null
+    private var subscribed: Boolean = false
 
     fun listen(listener: MessageReceived<String>) {
-        connectionManager.observeMessageStream()
+        subscription = connectionManager.observeMessageStream()
                 .filter { it.topic in subscribe.topics }
                 .subscribe { message ->
                     listener.onMessageReceived(message.payload.toString())
                 }
+        if (subackDisposable == null) awaitSuback { subscribed = true }
         connectionManager.sendMessage(subscribe)
     }
 
     fun listen(listener: OnMessageReceived<String>) {
-        connectionManager.observeMessageStream()
+        subscription = connectionManager.observeMessageStream()
                 .filter { it.topic in subscribe.topics }
                 .subscribe { message ->
                     listener(message.payload.toString())
                 }
+        if (subackDisposable == null) awaitSuback { subscribed = true }
         connectionManager.sendMessage(subscribe)
     }
 
     private fun awaitSuback(success: SubscribedSuccessfully) {
-        connectionManager.observeData()
+        subackDisposable = connectionManager.observeData()
                 .map { it as? Suback }
                 .filter { it != null && it.packetId == subscribe.packetId}
                 .subscribe {
+                    subscribed = true
                     success.onSubscribedSuccessfully()
+                    subackDisposable?.dispose()
                 }
     }
 
     private fun awaitSuback(success: OnSubscribedSuccessfully) {
-        connectionManager.observeData()
+        subackDisposable = connectionManager.observeData()
                 .map { it as? Suback }
                 .filter { it != null && it.packetId == subscribe.packetId }
                 .subscribe {
+                    subscribed = true
                     success()
+                    subackDisposable?.dispose()
                 }
     }
 
@@ -52,24 +62,26 @@ class Subscription(val subscribe: Subscribe,
     }
 
     fun listen(listener: MessageReceived<String>, error: Error) {
-        connectionManager.observeMessageStream()
+        subscription = connectionManager.observeMessageStream()
                 .filter { it.topic in subscribe.topics }
                 .subscribe({ message ->
                     listener.onMessageReceived(message.payload.toString())
                 }, { t ->
                     error.onError(t)
                 })
+        if (subackDisposable == null) awaitSuback { subscribed = true }
         connectionManager.sendMessage(subscribe)
     }
 
     fun listen(listener: OnMessageReceived<String>, error: OnError) {
-        connectionManager.observeMessageStream()
+        subscription = connectionManager.observeMessageStream()
                 .filter { it.topic in subscribe.topics }
                 .subscribe({ message ->
                     listener(message.payload.toString())
                 }, { t ->
                     error(t)
                 })
+        if (subackDisposable == null) awaitSuback { subscribed = true }
         connectionManager.sendMessage(subscribe)
     }
 
@@ -81,5 +93,13 @@ class Subscription(val subscribe: Subscribe,
     fun listen(success: OnSubscribedSuccessfully, listener: OnMessageReceived<String>, error: OnError) {
         awaitSuback(success)
         listen(listener, error)
+    }
+
+    fun unlisten() {
+        if (subackDisposable != null || subscribed) {
+            // TODO: Send unsubscribe to server
+            subackDisposable?.dispose()
+        }
+        subscription?.dispose()
     }
 }

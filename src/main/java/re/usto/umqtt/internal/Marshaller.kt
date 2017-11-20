@@ -11,6 +11,10 @@ class Marshaller {
             }
             return when (message[0]) {
                 0x20.toByte() -> Connack(message[3].toInt())
+                0x90.toByte() -> Suback(
+                        bytesToInt(message[2], message[3]),
+                        message.copyOfRange(4, message.size)
+                )
                 else -> throw IllegalArgumentException("Byte array not a known MQTT frame")
             }
         }
@@ -95,6 +99,8 @@ class Marshaller {
                 (value ushr 8).toByte(),
                 (value and 0xff).toByte()
         )
+
+        private fun bytesToInt(msb: Byte, lsb: Byte): Int = msb * 0x80 + lsb
 
         private fun encodeString(string: String): Array<Byte> = arrayOf(
                 *shortToBytes(string.length),

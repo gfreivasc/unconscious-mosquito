@@ -1,11 +1,8 @@
 package re.usto.umqtt
 
-import re.usto.umqtt.internal.Connect
-import re.usto.umqtt.internal.Marshaller
 import org.junit.Test
 import org.junit.Assert.assertEquals
-import re.usto.umqtt.internal.Connack
-import re.usto.umqtt.internal.Subscribe
+import re.usto.umqtt.internal.*
 
 class MarshallerTest {
     @Test fun connackPacketsCorrectlyMarshaled() {
@@ -149,5 +146,13 @@ class MarshallerTest {
             i += topic.length
             assertEquals(qosLevels[topics.indexOf(topic)], marshaled[i++])
         }
+    }
+
+    @Test fun subackFrameUnmarshalingCorrectly() {
+        val frame = byteArrayOf(0x90.toByte(), 0x03, 0x00, 0x01, 0x01)
+        val suback = Marshaller.unmarshal(frame) as Suback
+        assertEquals(1, suback.packetId)
+        assertEquals(1, suback.qosLevels.size)
+        assertEquals(0x01.toByte(), suback.qosLevels[0])
     }
 }

@@ -16,7 +16,7 @@ import kotlin.collections.ArrayList
 import kotlin.experimental.and
 
 class ConnectionManager(private val connection: UMqtt.Companion.Connection) {
-    private val socket = Socket()
+    private lateinit var socket: Socket
     private val sendQueue = PublishSubject.create<ByteArray>()
     private val dataQueue = PublishSubject.create<ByteArray>()
     private var parseBuffer = ArrayList<Byte>()
@@ -25,11 +25,10 @@ class ConnectionManager(private val connection: UMqtt.Companion.Connection) {
 
     private lateinit var parseDisposable: Disposable
 
-
     init {
         sendQueue.subscribeOn(Schedulers.io())
                 .subscribe({
-                    frame -> socket.getOutputStream().write(frame)
+                    frame -> socket.getOutputStream()?.write(frame)
                 }, {
                     error -> /* TODO: Logger!! */
                 })
@@ -37,13 +36,19 @@ class ConnectionManager(private val connection: UMqtt.Companion.Connection) {
 
     @Throws(IOException::class)
     private fun openSocket() {
+        socket = Socket()
         val ip: InetAddress = try {
             InetAddress.getByName(connection.brokerIp)
         } catch (e: UnknownHostException) {
             throw IllegalArgumentException("Broker IP host is unknown")
         }
         val address: SocketAddress = InetSocketAddress(ip, connection.brokerPort)
-        socket.connect(address)
+        try {
+            socket.connect(address)
+        }
+        catch (t: Throwable) {
+            t.printStackTrace()
+        }
     }
 
     private fun subscribeInputStream() {
@@ -66,13 +71,16 @@ class ConnectionManager(private val connection: UMqtt.Companion.Connection) {
                         parseBuffer.clear()
                     }
                 }, { error ->
-                    Log.e("UMqtt", "Error", error)
+                    Log.e("UMqtt", "Socket Error", error)
+                    socket.close()
+                    parseDisposable.dispose()
                 })
     }
 
     fun connect(): Completable = Completable.create { s ->
         try {
             openSocket()
+            subscribeInputStream()
             val connectFrame = Connect(
                     connection.protocol,
                     connection.version,
@@ -86,7 +94,6 @@ class ConnectionManager(private val connection: UMqtt.Companion.Connection) {
                     connection.password,
                     connection.willQoS
             )
-            subscribeInputStream()
             async {
                 val response = dataQueue.awaitFirst()
                 val connack = Marshaller.unmarshal(response) as Connack

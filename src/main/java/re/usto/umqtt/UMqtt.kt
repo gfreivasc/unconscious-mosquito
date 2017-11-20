@@ -3,10 +3,11 @@ package re.usto.umqtt
 import android.util.Log
 import io.reactivex.schedulers.Schedulers
 import re.usto.umqtt.internal.ConnectionManager
+import java.net.ConnectException
 import java.net.NoRouteToHostException
 
 class UMqtt(private val connection: Connection) {
-    private val connManager = ConnectionManager(connection)
+    val connManager = ConnectionManager(connection)
     private var listener: OnConnectedListener? = null
     private var onConnected: (() -> Unit)? = null
 
@@ -62,8 +63,13 @@ class UMqtt(private val connection: Connection) {
                 }, { error -> when(error) {
                     is NoRouteToHostException -> Log.e(
                             "UMqtt",
-                            "Check if information is correct: ${connection.brokerIp}:${connection.brokerPort}",
+                            "Check if information is correct: \"${connection.brokerIp}:${connection.brokerPort}\"",
                             error)
+                    is ConnectException -> Log.e(
+                            "UMqtt",
+                            "Check if information is correct: \"${connection.brokerIp}:${connection.brokerPort}\"",
+                            error
+                    )
                     is SecurityException -> Log.e(
                             "UMqtt",
                             "Check your permissions, INTERNET must be missing",

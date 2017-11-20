@@ -7,7 +7,7 @@ class Subscription(val subscribe: Subscribe,
                    val connectionManager: ConnectionManager) {
     private var subscription: Disposable? = null
     private var subackDisposable: Disposable? = null
-    private var subscribed: Boolean = false
+    var subscribed: Boolean = false
 
     fun listen(listener: MessageReceived<String>) {
         subscription = connectionManager.observeMessageStream()

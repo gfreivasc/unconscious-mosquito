@@ -22,11 +22,13 @@ class ConnectionManager(private val connection: UMqtt.Companion.Connection) {
     private var parseBuffer = ArrayList<Byte>()
     private var parsePos = 0
     private var parseFetchSize = false
+    private var preConnectionQueue: ArrayList<MQTTFrame>? = ArrayList()
 
     private lateinit var parseDisposable: Disposable
+    private var sendDisposable: Disposable
 
     init {
-        sendQueue.subscribeOn(Schedulers.io())
+        sendDisposable = sendQueue.subscribeOn(Schedulers.io())
                 .subscribe({
                     frame -> socket.getOutputStream()?.write(frame)
                 }, {
@@ -97,7 +99,13 @@ class ConnectionManager(private val connection: UMqtt.Companion.Connection) {
             async {
                 val response = dataQueue.awaitFirst()
                 val connack = Marshaller.unmarshal(response) as Connack
-                if (connack.returnCode == 0) s.onComplete()
+                if (connack.returnCode == 0) {
+                    s.onComplete()
+                    val postConn = ArrayList<MQTTFrame>()
+                    postConn.addAll(preConnectionQueue!!)
+                    preConnectionQueue = null
+                    postConn.forEach { sendMessage(it) }
+                }
                 else s.onError(ConnectException("Could not connect to MQTT Broker"))
             }
             sendMessage(connectFrame)
@@ -108,11 +116,14 @@ class ConnectionManager(private val connection: UMqtt.Companion.Connection) {
     }
 
     fun sendMessage(message: MQTTFrame) {
-        sendQueue.onNext(Marshaller.marshall(message))
+        if (preConnectionQueue != null && message !is Connect) preConnectionQueue?.add(message)
+        else sendQueue.onNext(Marshaller.marshall(message))
     }
 
     fun observeMessageStream(): Observable<Publish> = dataQueue.subscribeOn(Schedulers.io())
-            .map { Marshaller.unmarshal(it) as Publish }
+            .map { Marshaller.unmarshal(it) }
+            .filter { it is Publish }
+            .map { it as Publish }
 
     fun observeData(): Observable<MQTTFrame> = dataQueue.subscribeOn(Schedulers.io())
             .map { Marshaller.unmarshal(it) }

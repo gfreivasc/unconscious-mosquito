@@ -2,12 +2,20 @@ package re.usto.umqtt
 
 import android.util.Log
 import io.reactivex.schedulers.Schedulers
+import io.reactivex.subjects.PublishSubject
 import re.usto.umqtt.internal.ConnectionManager
 import java.net.ConnectException
 import java.net.NoRouteToHostException
 
 class UMqtt(private val connection: Connection) {
     val connManager = ConnectionManager(connection)
+    val statusObservable = PublishSubject.create<Int>()
+    var status = DISCONNECTED
+    private set(value) {
+        statusObservable.onNext(value)
+        field = value
+    }
+
     private var listener: OnConnectedListener? = null
     private var onConnected: (() -> Unit)? = null
 
@@ -47,10 +55,16 @@ class UMqtt(private val connection: Connection) {
 
             fun create() = UMqtt(this)
         }
+
+        const val DISCONNECTED = 0
+        const val CONNECTING = 1
+        const val CONNECTED = 2
+        const val DISCONNECTING = 3
     }
 
     fun connect(listener: OnConnectedListener) {
         this.listener = listener
+        status = CONNECTING
         connect(listener::onConnected)
     }
 
@@ -59,6 +73,7 @@ class UMqtt(private val connection: Connection) {
         connManager.connect()
                 .subscribeOn(Schedulers.io())
                 .subscribe({
+                    status = CONNECTED
                     onConnected?.invoke()
                 }, { error -> when(error) {
                     is NoRouteToHostException -> Log.e(
@@ -76,6 +91,8 @@ class UMqtt(private val connection: Connection) {
                             error
                     )
                     else -> error.printStackTrace()
-                }})
+                }
+                    status = DISCONNECTED
+                })
     }
 }

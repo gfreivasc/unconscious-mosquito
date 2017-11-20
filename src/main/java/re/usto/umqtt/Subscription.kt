@@ -31,8 +31,9 @@ class Subscription(val subscribe: Subscribe,
 
     private fun awaitSuback(success: SubscribedSuccessfully) {
         subackDisposable = connectionManager.observeData()
-                .map { it as? Suback }
-                .filter { it != null && it.packetId == subscribe.packetId}
+                .filter { it is Suback }
+                .map { it as Suback }
+                .filter { it.packetId == subscribe.packetId}
                 .subscribe {
                     subscribed = true
                     success.onSubscribedSuccessfully()
@@ -42,8 +43,9 @@ class Subscription(val subscribe: Subscribe,
 
     private fun awaitSuback(success: OnSubscribedSuccessfully) {
         subackDisposable = connectionManager.observeData()
-                .map { it as? Suback }
-                .filter { it != null && it.packetId == subscribe.packetId }
+                .filter { it is Suback }
+                .map { it as Suback }
+                .filter { it.packetId == subscribe.packetId }
                 .subscribe {
                     subscribed = true
                     success()

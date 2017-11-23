@@ -78,16 +78,16 @@ class UMqtt(private val connection: Connection) {
                 }, { error -> when(error) {
                     is NoRouteToHostException -> Log.e(
                             "UMqtt",
-                            "Check if information is correct: \"${connection.brokerIp}:${connection.brokerPort}\"",
+                            "Unable to establish a MQTT connection to \"${connection.brokerIp}:${connection.brokerPort}\"",
                             error)
                     is ConnectException -> Log.e(
                             "UMqtt",
-                            "Check if information is correct: \"${connection.brokerIp}:${connection.brokerPort}\"",
+                            "Unable to establish a MQTT connection to \"${connection.brokerIp}:${connection.brokerPort}\"",
                             error
                     )
                     is SecurityException -> Log.e(
                             "UMqtt",
-                            "Check your permissions, INTERNET must be missing",
+                            "Check you have the permission \"android.permission.INTERNET\" in your manifest.",
                             error
                     )
                     else -> error.printStackTrace()

@@ -36,7 +36,7 @@ class ConnectionManager(private val connection: UMqtt.Companion.Connection) {
                 })
     }
 
-    @Throws(IOException::class)
+    @Throws(Throwable::class)
     private fun openSocket() {
         socket = Socket()
         val ip: InetAddress = try {
@@ -45,12 +45,7 @@ class ConnectionManager(private val connection: UMqtt.Companion.Connection) {
             throw IllegalArgumentException("Broker IP host is unknown")
         }
         val address: SocketAddress = InetSocketAddress(ip, connection.brokerPort)
-        try {
-            socket.connect(address)
-        }
-        catch (t: Throwable) {
-            t.printStackTrace()
-        }
+        socket.connect(address)
     }
 
     private fun subscribeInputStream() {

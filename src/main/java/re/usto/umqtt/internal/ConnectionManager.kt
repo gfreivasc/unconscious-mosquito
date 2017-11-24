@@ -10,6 +10,7 @@ import kotlinx.coroutines.experimental.async
 import re.usto.umqtt.Subscription
 import re.usto.umqtt.UMqtt
 import re.usto.umqtt.util.awaitFirst
+import re.usto.umqtt.util.hexString
 import java.io.IOException
 import java.net.*
 import kotlin.collections.ArrayList
@@ -71,6 +72,7 @@ class ConnectionManager(private val connection: UMqtt.Companion.Connection) {
                     Log.e("UMqtt", "Socket Error", error)
                     socket.close()
                     parseDisposable.dispose()
+                    if (error is SocketException) connect()
                 })
     }
 
@@ -93,8 +95,8 @@ class ConnectionManager(private val connection: UMqtt.Companion.Connection) {
             )
             async {
                 val response = dataQueue.awaitFirst()
-                val connack = Marshaller.unmarshal(response) as Connack
-                if (connack.returnCode == 0) {
+                val connack = parseFrame(response) as? Connack
+                if (connack != null && connack.returnCode == 0) {
                     s.onComplete()
                     val postConn = ArrayList<MQTTFrame>()
                     postConn.addAll(preConnectionQueue!!)
@@ -116,10 +118,22 @@ class ConnectionManager(private val connection: UMqtt.Companion.Connection) {
     }
 
     fun observeMessageStream(): Observable<Publish> = dataQueue.subscribeOn(Schedulers.io())
-            .map { Marshaller.unmarshal(it) }
+            .map { parseFrame(it) }
             .filter { it is Publish }
             .map { it as Publish }
 
     fun observeData(): Observable<MQTTFrame> = dataQueue.subscribeOn(Schedulers.io())
-            .map { Marshaller.unmarshal(it) }
+            .map { parseFrame(it) }
+            .filter { it !is NullFrame }
+
+    fun parseFrame(frame: ByteArray): MQTTFrame {
+        try {
+            return Marshaller.unmarshal(frame)
+        }
+        catch (e: IllegalArgumentException) {
+            val type = (frame[0].toInt() ushr 4).toByte()
+            Log.e("UMqtt", "Unable to read unknown packet type 0x${type.hexString()}")
+            return NullFrame()
+        }
+    }
 }

@@ -42,3 +42,5 @@ suspend fun <T> ObservableSource<T>.awaitFirst(): T = suspendCancellableCoroutin
         }
     })
 }
+
+fun Byte.hexString() = java.lang.String.format("%02x", this)

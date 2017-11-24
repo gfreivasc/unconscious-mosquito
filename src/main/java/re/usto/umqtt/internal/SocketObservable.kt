@@ -16,8 +16,8 @@ class SocketObservable(private val socket: Socket, bufferSize: Int = 1024 * 1024
                 if (n > 0) for (i in 0..(n - 1)) subscriber.onNext(buffer[i])
             }
         }
-        catch (e: IOException) {
-            subscriber.onError(e)
+        catch (t: Throwable) {
+            subscriber.onError(t)
         }
         if (!subscriber.isDisposed) {
             if (n == -1) subscriber.onError(IOException("Broken PIPE"))

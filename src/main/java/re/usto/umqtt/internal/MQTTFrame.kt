@@ -3,6 +3,11 @@ package re.usto.umqtt.internal
 sealed class MQTTFrame {
     abstract val length: Int
 }
+
+class NullFrame(): MQTTFrame() {
+    override val length: Int = 0
+}
+
 data class Connect(val protocol: String, val version: Int, val cleanSession: Boolean,
                    val keepAlive: Int, val clientId: String, val willRetain: Boolean = false,
                    val willTopic: String? = null, val willMessage: String? = null,
@@ -11,6 +16,7 @@ data class Connect(val protocol: String, val version: Int, val cleanSession: Boo
 ): MQTTFrame() {
     override val length: Int = 0
 }
+
 data class Connack(val returnCode: Int): MQTTFrame() {
     override val length: Int = 4 // 4 Bytes
 }
@@ -31,6 +37,18 @@ data class Publish(val topic: String, val payload: ByteArray, val qos: Byte = 0,
                    val packetId: Int
 ): MQTTFrame() {
     override val length: Int = 0
+}
+
+data class Puback(val packetId: Int): MQTTFrame() {
+    override val length: Int = 4
+}
+
+data class Pubrel(val packetId: Int): MQTTFrame() {
+    override val length: Int = 4
+}
+
+data class Pubcomp(val packetId: Int): MQTTFrame() {
+    override val length: Int = 4
 }
 
 data class Suback(val packetId: Int, val qosLevels: ByteArray): MQTTFrame() {

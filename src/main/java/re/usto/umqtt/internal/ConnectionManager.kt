@@ -22,6 +22,7 @@ class ConnectionManager(private val connection: UMqtt.Companion.Connection) {
     private val dataQueue = PublishSubject.create<ByteArray>()
     private var parseBuffer = ArrayList<Byte>()
     private var parsePos = 0
+    private var parseMul = 1
     private var parseFetchSize = false
     private var preConnectionQueue: ArrayList<MQTTFrame>? = ArrayList()
 
@@ -56,10 +57,12 @@ class ConnectionManager(private val connection: UMqtt.Companion.Connection) {
                     parseBuffer.add(it)
                     if (parsePos == 0) {
                         parsePos = 1
+                        parseMul = 1
                         parseFetchSize = true
                     }
                     else if (parseFetchSize) {
-                        parsePos *= it % 0x80.toByte()
+                        parsePos += (it and 0x7f) * parseMul
+                        parseMul *= 0x80
                         if ((it and 0x80.toByte()) == 0.toByte()) parseFetchSize = false
                     }
                     else if (parsePos > 1) parsePos--

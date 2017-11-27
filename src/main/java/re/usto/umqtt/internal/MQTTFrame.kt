@@ -33,8 +33,8 @@ data class Subscribe(val topics: Array<String>, val qosLevels: ByteArray, val pa
     override val length: Int = 0
 }
 
-data class Publish(val topic: String, val payload: ByteArray, val qos: Byte = 0,
-                   val packetId: Int
+data class Publish(val topic: String, val payload: String, val qos: Byte = 0,
+                   val packetId: Int, var dup: Boolean = false, val retain: Boolean = true
 ): MQTTFrame() {
     override val length: Int = 0
 }

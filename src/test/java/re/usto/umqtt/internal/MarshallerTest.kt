@@ -1,8 +1,8 @@
-package re.usto.umqtt
+package re.usto.umqtt.internal
 
 import org.junit.Test
 import org.junit.Assert.assertEquals
-import re.usto.umqtt.internal.*
+import org.junit.Assert.assertNotNull
 
 class MarshallerTest {
     @Test fun connackPacketsCorrectlyMarshaled() {
@@ -154,5 +154,60 @@ class MarshallerTest {
         assertEquals(1, suback.packetId)
         assertEquals(1, suback.qosLevels.size)
         assertEquals(0x01.toByte(), suback.qosLevels[0])
+    }
+
+    @Test fun publishMarshallingCorrectly() {
+        val topic = "a/b"
+        val msg = "test"
+        val qos = 2
+        val pid = 10
+        val marshaled = Marshaller.marshall(Publish(topic, msg, qos.toByte(), pid))
+        var i = 0
+        assertEquals(0b00110101.toByte(), marshaled[i++])
+        val remLen = 2 + topic.length + 2 + msg.length
+        assertEquals(remLen.toByte(), marshaled[i++])
+        assertEquals((topic.length / 256).toByte(), marshaled[i++])
+        assertEquals((topic.length % 256).toByte(), marshaled[i++])
+        for (j in 0 until topic.length) assertEquals(topic[j].toByte(), marshaled[i + j])
+        i += topic.length
+        assertEquals((pid / 256).toByte(), marshaled[i++])
+        assertEquals((pid % 256).toByte(), marshaled[i++])
+        assertEquals(msg.length, marshaled.size - i)
+        for (j in 0 until msg.length) assertEquals(msg[j].toByte(), marshaled[i + j])
+    }
+
+    @Test fun publishUnmarshallingCorrectly() {
+        val topic = "a/b"
+        val msg = "test"
+        val qos: Byte = 2
+        val pid = 10
+        val dup = true
+        val retain = false
+        var publish = Marshaller.unmarshal(
+                Marshaller.marshall(Publish(topic, msg, qos.toByte(), pid, dup, retain))
+        ) as? Publish
+        assertNotNull(publish)
+        publish = publish as Publish
+        assertEquals(topic, publish.topic)
+        assertEquals(msg, publish.payload)
+        assertEquals(qos, publish.qos)
+        assertEquals(pid, publish.packetId)
+        assertEquals(dup, publish.dup)
+        assertEquals(retain, publish.retain)
+    }
+
+    @Test fun remainingSizeEncodingCorrectly() {
+        val size = 16384
+        val enc = Marshaller.encodeRemainingSize(size)
+        assertEquals(0x80.toByte(), enc[0])
+        assertEquals(0x80.toByte(), enc[1])
+        assertEquals(0x01.toByte(), enc[2])
+    }
+
+    @Test fun remainingSizeDecodingCorrectly() {
+        val size = 8219942
+        assertEquals(size, Marshaller.decodeRemainingSize(
+                Marshaller.encodeRemainingSize(size).toByteArray()
+        ))
     }
 }
